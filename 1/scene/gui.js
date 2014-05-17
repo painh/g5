@@ -12,7 +12,7 @@ var Btn = function()
 	this.Render = function()
 	{
 		Renderer.SetColor("#000000"); 
-		Renderer.SetAlpha(0.2);
+		Renderer.SetAlpha(0.8);
 		Renderer.Rect(this.x, this.y, this.width, this.height);
 		Renderer.SetColor("#ffffff"); 
 		Renderer.SetAlpha(1);

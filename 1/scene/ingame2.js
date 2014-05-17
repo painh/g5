@@ -7,13 +7,12 @@ var g_cameraY = 0;
 var BLOCK_DISTANCE = 33;
 
 
+var g_coin = 10;
 var g_distance = 0;
 var g_myTeamMinPos = 11;
 
 var g_effectManager = new EffectManager();
 var g_gameUI = new BtnManager();
-
-var g_box = 5;
 //-----------------------------------------------------------------------------------------------------
 //
 //
@@ -21,54 +20,96 @@ var g_box = 5;
 
 
 var OBJECT_TYLE_BLOCK = 1;
-var stages = [
-{ map : 
+var stages = [{ map : 
 [
-"xxxxxxxxxxx",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x...p.....x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"xxxxxxxxxxx",
+"............",
+"............",
+"............",
+"............",
+"............",
+"....xxx.....",
+"....xhx.....",
+"....x1x.....",
+"....xhx.....",
+"....xhx.....",
+"....xpx.....",
+"....xhx.....",
+"....xxx.....",
+"............",
+"............",
+"............",
+"............",
+"............",
 ]},
-{ map : 
-[
-"     x     ",
-"    x.x    ",
-"   x...x   ",
-"  x.....x  ",
-" x.......x ",
-"x.........x",
-"x...g.....x",
-" x..p....x ",
-"  x.....x  ",
-"   x...x   ",
-"    x.x    ",
-"     x     ",
+{map :[
+"............",
+"............",
+"............",
+"............",
+"............",
+".....xx.....",
+"....xhhx....",
+"...x1hhhx...",
+"...xhhhhx...",
+"...xxxhhx...",
+"...xhhphx...",
+"....xhhx....",
+".....xx.....",
+"............",
+"............",
+"............",
+"............",
+"............",
+]},
+{map :[
+"............",
+"............",
+"...xxxxxx...",
+"...x1...x...",
+"...x.xxxx...",
+"...x....x...",
+"...xxxx.x...",
+"...x1...x...",
+"...xhh.hx...",
+"...x..hhx...",
+"...xh.phx...",
+"....xhhx....",
+".....xx.....",
+"............",
+"............",
+"............",
+"............",
+"............",
+]},
+{map :[
+"............",
+"............",
+"...xxxxxx...",
+"...x....x...",
+"..x......x..",
+".x.....p..x.",
+".xhhh.....x.",
+".x........x.",
+".xxxxxxxx.x.",
+".x.1....1.x.",
+"..xx....xx..",
+"....x..x....",
+".....xx.....",
+"............",
+"............",
+"............",
+"............",
+"............",
 ]},
 				];
 
 var g_objList = new ObjManager(); 
+var g_pickedObj = null;
 var g_imgs = [];
 var g_map_height = 0;
 var g_map_width = 0;
-var g_exp = 0;
-var g_player; 
+var g_playerHP = 10;
 var g_stageIDX = 0;
-var g_gold = 10;
-var g_turn = 10;
-
 var SceneIngame = function()
 { 
 	this.LoadStage = function(idx)
@@ -76,8 +117,8 @@ var SceneIngame = function()
 		var d = new Date();
 		var n = d.getTime(); 
 
+		g_playerHP = 5;
 
-		this.turnFlag = false;
 		this.state = 'game';
 		this.title_cnt = 5; 
 		this.title_timer = n;
@@ -86,6 +127,7 @@ var SceneIngame = function()
 		this.world_moving_prev_y = 0;
 		this.world_moving_enable = false; 
 		this.score = 0;
+		this.turn = 5;
 		this.combo = 0;
 	
 		g_stageIDX = idx;
@@ -104,57 +146,29 @@ var SceneIngame = function()
 			for(var j = 0; j < line.length; ++j)
 			{
 				var tile = line.charAt(j);
-				var type ='';
+				var tyle = 'dark';
 				if(tile == 'x') type = 'block';
 				if(tile == '.') type = 'dark';
 				if(tile == 'h') type = 'heart';
 				if(tile == 'p') type = 'player';
-				if(tile == '1') type = 'mon';
-				if(tile == 'b') type = 'box';
-				if(tile == 't') type = 'turn';
-				if(tile == 'g') type = 'gold';
+				if(tile == '1') type = 'lv1';
 
 				switch(type)
 				{
 					case 'player':
-					case 'mon':
-					case 'box':
-					case 'turn':
-					case 'gold':
+					case 'lv1':
 						objList.push([j * TILE_WIDTH , i * TILE_HEIGHT, type]);
-						g_objList.Add(j * TILE_WIDTH , i * TILE_HEIGHT, 'dark'); 
 						continue;
 				}
-
-				if(type == '')
-					continue;
 
 				g_objList.Add(j * TILE_WIDTH , i * TILE_HEIGHT, type); 
 			} 
 		}
 
 		for(var i in objList)
-		{
-			var obj = g_objList.Add(objList[i][0],objList[i][1],objList[i][2]); 
-			if(objList[i][2] == 'player')
-				g_player = obj;
-		}
-
-
-		for(var i = 0; i < 10; ++i)
-			g_objList.RandomGen('heart');
-
-		for(var i = 0; i < 5; ++i)
-			g_objList.RandomGen('box2');
-
-		for(var i = 0; i < 3; ++i)
-			g_objList.RandomGen('mon');
+				g_objList.Add(objList[i][0],objList[i][1],objList[i][2]); 
 
 		console.log('start!');
-	}
-	this.LoadImg = function(name)
-	{
-		g_imgs[name] = ImageManager.Register( "assets/"+name+".gif", name);
 	}
 	this.Start = function()
 	{ 
@@ -162,22 +176,16 @@ var SceneIngame = function()
 		g_imgs['dark'] = ImageManager.Register( "assets/dark.gif", 'dark');
 		g_imgs['heart'] = ImageManager.Register( "assets/heart.gif", 'heart');
 		g_imgs['player'] = ImageManager.Register( "assets/player.gif", 'player');
-
-		this.LoadImg('mon');
-		this.LoadImg('gold');
-		this.LoadImg('box');
-		this.LoadImg('box2');
-		this.LoadImg('merchant');
-		this.LoadImg('turn');
+		g_imgs['lv1'] = ImageManager.Register( "assets/lv1.gif", 'lv1');
+		g_imgs['lv2'] = ImageManager.Register( "assets/lv2.gif", 'lv2');
 
 
 //		this.state = 'title';
 
-		var ui_width = 30;
-		g_gameUI.Add(ui_width, 0, Renderer.width- 100, ui_width, 'up', this, 'pressUp');
-		g_gameUI.Add(Renderer.width - ui_width, ui_width, ui_width, Renderer.height - 100, 'right', this, 'pressRight');
-		g_gameUI.Add(ui_width, Renderer.height - ui_width, Renderer.width - 100, ui_width, 'down', this, 'pressDown');
-		g_gameUI.Add(0, ui_width, ui_width, Renderer.height - 100, 'left', this, 'pressLeft');
+		g_gameUI.Add(50, 0, Renderer.width- 100, 50, 'up', this, 'pressUp');
+		g_gameUI.Add(Renderer.width - 50, 50, 50, Renderer.height - 100, 'right', this, 'pressRight');
+		g_gameUI.Add(50, Renderer.height - 50, Renderer.width - 100, 50, 'down', this, 'pressDown');
+		g_gameUI.Add(0, 50, 50, Renderer.height - 100, 'left', this, 'pressLeft');
 
 		this.LoadStage(g_stageIDX);
 	}
@@ -187,7 +195,7 @@ var SceneIngame = function()
 		if(g_objList.CheckMoving())
 			return;
 		g_objList.Move(0, -1);
-		this.turnFlag = true;
+		this.Turn();
 	}
 	
 	this.pressDown = function()
@@ -195,7 +203,7 @@ var SceneIngame = function()
 		if(g_objList.CheckMoving())
 			return;
 		g_objList.Move(0, 1);
-		this.turnFlag = true;
+		this.Turn();
 	}
 	
 	this.pressRight = function()
@@ -203,7 +211,7 @@ var SceneIngame = function()
 		if(g_objList.CheckMoving())
 			return;
 		g_objList.Move(1, 0);
-		this.turnFlag = true;
+		this.Turn();
 	}
 	
 	this.pressLeft = function()
@@ -211,7 +219,7 @@ var SceneIngame = function()
 		if(g_objList.CheckMoving())
 			return;
 		g_objList.Move(-1, 0);
-		this.turnFlag = true;
+		this.Turn();
 	}
 	
 	
@@ -233,10 +241,10 @@ var SceneIngame = function()
 		if(KeyManager.IsKeyPress(KEY_RIGHT))
 			this.pressRight();
 
-		if(g_player.hp <= 0)
+		if(g_playerHP < 0)
 			this.state = 'gameOver';
 
-		if(g_turn <= 0)
+		if(this.turn < 0)
 			this.state = 'gameOver';
 
 		if(this.state =='gameOver')
@@ -263,32 +271,21 @@ var SceneIngame = function()
 		g_effectManager.Update(); 
 		g_gameUI.Update();
 
-
-		if(g_objList.CheckMoving() == 0 && this.turnFlag)
+		if(this.world_moving_enable && this.world_moving)
 		{
-			this.turnFlag = false;
-			this.Turn();
-		}
+			var diff_x = MouseManager.x - this.world_moving_prev_x;
+			var diff_y = MouseManager.y - this.world_moving_prev_y;
+			this.world_moving_prev_x = MouseManager.x;
+			this.world_moving_prev_y = MouseManager.y;
 
+			g_cameraX -= diff_x;
+			g_cameraY -= diff_y;
+		}
 
 		if(g_objList.GetEnemyCnt() == 0)
 		{
-//			g_stageIDX++;
-//			this.LoadStage(g_stageIDX);
-		}
-
-		if(MouseManager.Clicked)
-		{
-			var x = Math.round(MouseManager.x / TILE_WIDTH ) * TILE_WIDTH;
-			var y = Math.round(MouseManager.y / TILE_HEIGHT) * TILE_HEIGHT;
-
-			var list = g_objList.GetChrByPos(x, y);
-
-			if(list.length == 1 && list[0].type == 'dark' && g_box > 0)
-			{
-				g_box--;
-				var obj = g_objList.Add(x, y, 'box'); 
-			}
+			g_stageIDX++;
+			this.LoadStage(g_stageIDX);
 		}
 
 	}
@@ -296,12 +293,9 @@ var SceneIngame = function()
 	this.Turn = function()
 	{
 		this.combo = 0;
-		g_turn--;
-		g_objList.RandomGen();
-		g_objList.RandomGen('box2');
-
-		for(var i = 0; i < 1; ++i)
-			g_objList.RandomGen('mon');
+		g_pickedObj = null;
+		g_objList.ClearPickedObj();
+		this.turn--;
 	}
 	
 	this.Render = function()
@@ -309,32 +303,31 @@ var SceneIngame = function()
 		Renderer.SetAlpha(1.0); 
 		Renderer.SetColor("#bbbbbb"); 
 
+		for(var i =  -(g_cameraX % TILE_WIDTH) - TILE_WIDTH; i < parseInt(Renderer.width) + TILE_WIDTH; i += TILE_WIDTH)
+		{
+			for(var j =  -(g_cameraY % TILE_HEIGHT) - TILE_HEIGHT; j < parseInt(Renderer.height) + TILE_HEIGHT; j += TILE_HEIGHT)
+			{
+				if(Math.abs(parseInt((i+g_cameraX) / TILE_WIDTH) % 2) != Math.abs(parseInt((j+g_cameraY) / TILE_HEIGHT) % 2))
+					Renderer.Rect( i, j, TILE_WIDTH, TILE_HEIGHT);
+			}
+		}	
 
 		g_objList.Render(); 
 		g_gameUI.Render();
 
+		if(g_pickedObj)
+		{ 
+			Renderer.SetAlpha(0.5); 
+			Renderer.SetColor('#000000');
+			g_pickedObj.Render();
+		}
 
 		g_effectManager.Render();
 		Renderer.SetAlpha(1.0); 
 		Renderer.SetColor("#ffffff"); 
 //		Renderer.Text(0, 0, g_cameraX + "," + g_cameraY + "," + this.world_moving);
-		var maxHP = g_player.level * 10;
-		if(g_player.hp <= 0)
-			Renderer.SetColor("#ff0000"); 
-		else
-			Renderer.SetColor("#ffffff"); 
-		Renderer.Text(50, 50, 'hp : ' + g_player.hp + " / "+ maxHP);
-
-		if(g_turn < 3)
-			Renderer.SetColor("#ff0000"); 
-		else
-			Renderer.SetColor("#ffffff"); 
-		Renderer.Text(50, 70, 'left turn : ' + g_turn);
-
-		Renderer.SetColor("#ffffff"); 
-		var maxExp = g_player.level * 2;
-		Renderer.Text(50, 90, 'gold : ' + g_gold + ' / exp  : ' + g_player.exp + " / " + maxExp );
-		Renderer.Text(50, 110, 'box : ' + g_box );
+		Renderer.Text(50, 50, 'hp : ' + g_playerHP + " / 10 left turn " + this.turn );
+		Renderer.Text(50, 70, 'stage : ' + g_stageIDX );
 		if(this.combo >= 2)
 //		Renderer.Text(0, Renderer.height - 20, 'combom : ' + this.combo);
 		if(this.state == 'title')
@@ -351,11 +344,7 @@ var SceneIngame = function()
 
 		if(this.state == 'gameOver')
 		{
-			Renderer.SetAlpha(0.5); 
-			Renderer.SetColor("#000000"); 
-			Renderer.Rect(0, 0, Renderer.width, Renderer.height);
 			Renderer.SetAlpha(1); 
-
 			Renderer.SetColor("#ff0000"); 
 			Renderer.SetFont('16pt Arial');
 			Renderer.Text(24, 150, "Game Over"); 

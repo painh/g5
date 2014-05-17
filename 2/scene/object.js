@@ -1,126 +1,27 @@
-var g_sizeTable = [ {r : 0, c : '#FF50CF'},
-					{r : 1, c : '#79FFCE'},
-					{r : 2, c : '#AACDFF'},
-					{r : 3, c : '#FFCD00'},
-					{r : 4, c : '#CCBB88'},
-					{r : 5, c : '#8844BB'},
-					{r : 6, c : '#FF22AA'},
-					{r : 7, c : '#88CC77'},
-					{r : 8, c : '#111111'},
-					{r : 9, c : '#44FF99'},
-					{r : 10, c : '#88DD88'},
-					{r : 11, c : '#44BBFF'}, 
-					{r : 12, c : '#7799AA'}, 
-					{r : 12, c : '#FF33AA'}
-				];
-
-var size = 15;
-for(var i  in g_sizeTable)
-{
-	g_sizeTable[i].r = size;
-	size += 2;
-}
 var Obj = function()
 {
-	this.screenPos = 0;
 	this.x = 0;
 	this.y = 0;
 	this.ax = 0;
 	this.ay = 0;
-	this.r = 0;
-	this.width = 1;
-	this.height = 1;
-	this.hp = 3;
+	this.hp = 10;
+	this.exp = 0;
 
 	this.type = 0;
+	this.level = 0;
 
 	this.isPlayer = false;
 	this.isDead = false;
-	this.scaleSize = 0;
-	this.scaleState = 'normal';
-
-	this.Picked = function()
-	{
-		this.picked = true;
-		this.scaleSize = 0;
-		this.scaleState = 'picked';
-	}
-
-	this.Unpicked = function()
-	{
-		if(this.scaleState != 'picked')
-			return;
-
-		this.picked = false;
-		this.scaleState = 'unpicked';
-	}
 
 	this.Update = function()
 	{
-		var scaleUnit = 1.8;
-
-
-		switch(this.scaleState)
-		{
-			case 'normal':
-				if(this.scaleSize > 0)
-				{
-					this.scaleSize -= scaleUnit;
-					if(this.scaleSize < 0) this.scaleSize = 0;
-				} 
-				else
-				{
-					this.scaleSize += scaleUnit;
-					if(this.scaleSize > 0) this.scaleSize = 0;
-				}
-
-				break;
-
-			case 'unpicked':
-//				this.scaleSize -= scaleUnit;
-//				if(this.scaleSize < 0)
-//				{
-//					this.scaleSize = 0;
-					this.scaleState = 'normal';
-//				}
-				break;
-
-			case 'picked':
-//				this.scaleSize += scaleUnit;
-//				if(this.scaleSize > 10)
-//					this.scaleSize = 10; 
-				break;
-
-			case 'tie':
-				this.scaleSize -= scaleUnit;
-				if(this.scaleSize < -10)
-				{
-					this.scaleState = 'normal';
-					if(this.hp <= 0)
-						this.isDead = true;
-				}
-				break;
-
-			case 'win':
-				this.scaleSize += scaleUnit;
-				if(this.scaleSize > 10)
-					this.scaleState = 'normal';
-				break;
-
-			case 'dead':
-				this.scaleSize -= scaleUnit;
-				if(this.scaleSize < -10)
-				{
-					this.scaleState = 'normal';
-					this.isDead = true;
-				}
-				break;
-		}
-
 		switch(this.type)
 		{
 			case 'heart':
 			case 'block':
+			case 'box':
+			case 'box2':
+			case 'merchant':
 			case 'dark':
 				this.ax = 0;
 				this.ay = 0;
@@ -140,33 +41,98 @@ var Obj = function()
 			switch(ret[i].type)
 			{
 				case 'block':
+				case 'box':
+				case 'box2':
+				case 'merchant':
 					flag = true;
 					break;
-			}
-			
 
-			if(ret[i].type.indexOf('lv') == 0 && this.type.indexOf('lv') == 0)
+				case 'gold':
+				case 'turn':
+					if(this.type != 'player')
+						flag = true;
+					break;
+
+				case 'mon':
+					if(this.type == 'gold' ||
+						(this.type == 'turn'))
+						flag = true;
+					break;
+			} 
+
+			if(ret[i].type == 'mon' && this.type == 'mon')
 			{
-				if(this.type == ret[i].type)
+//				if(this.level == ret[i].level)
 				{
 					ret[i].isDead = true;
-					this.type = 'lv2';
-					this.hp = 15;
+					this.level += ret[i].level;
+					this.hp = this.level * 10;
 				}
-				else
-					flag = true;
+//				else
+//					flag = true;
 			}
+
+			if(ret[i].type == 'turn' && this.type == 'turn')
+			{
+//				if(this.level == ret[i].level)
+				{
+					ret[i].isDead = true;
+					this.level += ret[i].level;
+				}
+//				else
+//					flag = true;
+			}
+
+			if(ret[i].type == 'gold' && this.type == 'gold')
+			{
+//				if(this.level == ret[i].level)
+				{
+					ret[i].isDead = true;
+					this.level += ret[i].level;
+				}
+//				else
+//					flag = true;
+			}
+
+			if((this.type == 'player' && ret[i].type == 'gold') ||
+				(this.type == 'gold' && ret[i].type == 'player'))
+			{
+				var gold = ret[i];
+				if(this.type != 'player')
+					gold = this;
+
+				g_gold += ret[i].level;
+				gold.isDead = true;
+			}
+
+			if((this.type == 'player' && ret[i].type == 'turn') ||
+				(this.type == 'turn' && ret[i].type == 'player'))
+			{
+				var turn = ret[i];
+				if(this.type != 'player')
+					turn = this;
+
+				g_turn += ret[i].level;
+				turn.isDead = true;
+			}
+
+			if((this.type == 'player' || this.type == 'mon' )&& ret[i].type == 'box2')
+				ret[i].isDead = true;
+
+			if((this.type == 'player' || this.type == 'mon') && ret[i].type == 'box')
+				ret[i].type = 'box2';
 
 			if(this.type == 'player' && ret[i].type == 'heart')
 			{ 
-				g_playerHP++;	
-				if(g_playerHP >= 10)
-					g_playerHP = 10;
+				g_player.hp++;	
+				var maxHP = g_player.level * 10;
+				if(g_player.hp >= maxHP)
+					g_player.hp = maxHP;
 				ret[i].isDead = true;
 			} 
 
-			if((this.type == 'player' && ret[i].type.indexOf('lv') == 0) || 
-				(this.type.indexOf('lv') == 0 && ret[i].type == 'player'))
+			if((this.type == 'player' && ret[i].type == 'mon') || 
+				(this.type == 'mon'  && ret[i].type == 'player'))
 			{
 				var player = this;
 				var enemy = ret[i];
@@ -176,14 +142,34 @@ var Obj = function()
 					enemy = this;
 				}
 
-				enemy.hp -= 5;
+				enemy.hp -= player.level * 10;
+				g_player.hp -= enemy.level * 3; 
 
-				if(enemy.hp < 0)
+				if(enemy.hp <= 0)
+				{
 					enemy.isDead = true;
-				else
-					flag = true;
+					for(var i = 0; i < 3; ++i)
+					{
+						g_objList.RandomGen('turn');
+						g_objList.RandomGen('gold');
+					}
 
-				g_playerHP -= 3; 
+					g_player.exp += enemy.level;
+					
+					var maxExp = g_player.level * 2;
+					if(g_player.exp >= maxExp)
+					{
+						g_player.level++;
+						g_player.exp = 0;
+						var maxHP = g_player.level * 10;
+						g_player.hp = maxHP;
+					}
+				}
+				else
+				{
+					flag = true;
+				}
+
 			}
 		}
 
@@ -210,37 +196,94 @@ var Obj = function()
 //				Renderer.ImgFlipH(x, y, img);
 
 	
-		Renderer.SetColor(this.color);
 		var x = this.x - g_cameraX;
 		var y = this.y - g_cameraY;
 
-		Renderer.Circle(x, y , this.r * (10 + this.scaleSize) / 10);
-
-		var textWidth = Renderer.GetTextWidth(this.screenPos);
-		Renderer.SetColor('#ffffff');
-		Renderer.Text(x, y , this.r);
 		Renderer.Img(x, y, g_imgs[this.type]);
+
+		if(this.level > 0)
+		{
+			Renderer.SetFont('5pt Arial');
+			var text = 'lv.'+this.level;
+			var textWidth = Renderer.GetTextWidth(text); 
+			Renderer.SetColor('#000');
+			Renderer.Rect(x, y , textWidth, Renderer.GetFontSize());
+			Renderer.SetColor('#0f0');
+			Renderer.Text(x, y , text);
+
+
+			if(this.type != 'gold' && this.type != 'turn')
+			{
+				var hpHeight = 5;
+				Renderer.SetColor('#f00');
+				var maxHP = this.level * 10;
+				Renderer.Rect(x, y + TILE_HEIGHT - hpHeight , TILE_WIDTH, hpHeight);
+				var hp = this.hp;
+				if(this.type == 'player')
+					hp = g_player.hp;
+				var width = hp / maxHP * TILE_WIDTH;
+				Renderer.SetColor('#0f0');
+				Renderer.Rect(x, y + TILE_HEIGHT - hpHeight , width, hpHeight);
+			}
+		}
+
 //		Renderer.Text(x + TILE_WIDTH / 2 - textWidth / 2, 
 //						y + TILE_HEIGHT / 2 - Renderer.GetFontSize() / 2 , this.hp);
-	}
-
-	this.Combine = function(obj)
-	{
-		obj.isDead = true;
-		this.grade++;
-		if(this.grade >= g_sizeTable.length)
-			this.grade = g_sizeTable.length - 1;
-		this.r = g_sizeTable[this.grade].r;
-		this.color = g_sizeTable[this.grade].c; 
 	}
 };
 
 var ObjManager = function()
 { 
 	this.total_point = 0;
+	this.m_darkList = [];
 	this.Clear = function()
 	{
 		this.m_list = [];
+		this.m_darkList = [];
+	}
+
+	this.tryRandomGen = function(type)
+	{
+		var genList = ['gold', 'heart'];
+		var rand = randomRange(0, genList.length - 1);	
+		var rand2 = randomRange(0, this.m_darkList.length - 1);	
+		if(!type)
+			type = genList[rand];
+
+
+		var ret = false;
+		var max = 1;
+
+		if(type == 'box')
+			max = 3;
+
+		for(var i = 0; i < max; ++i)
+		{
+			var x = this.m_darkList[rand2].x + (randomRange(0, 2) - 1) * TILE_WIDTH;
+			var y = this.m_darkList[rand2].y + (randomRange(0, 2) - 1) * TILE_HEIGHT;
+			var list = this.GetChrByPos(x, y);
+			if(list.length == 1 && list[0].type == 'dark')
+			{ 
+				var obj = this.Add(x, y, type); 
+				
+				if(type == 'mon')
+				{
+					obj.level = g_player.level + (randomRange(0, 2) - 1);
+					obj.level = Math.max(1, obj.level);
+					obj.hp = obj.level * 10; 
+				}
+				ret = true;
+			}
+		}
+
+		return ret;
+	}
+
+	this.RandomGen = function(type)
+	{
+		for(var i = 0; i < 10; ++i)
+			if(this.tryRandomGen(type))
+				return;
 	}
 
 	this.Add = function(x, y, type)
@@ -252,6 +295,12 @@ var ObjManager = function()
 		obj.type = type;
 
 		this.m_list.push(obj); 
+		if(type == 'player' || type == 'mon' || type =='gold' || type=='turn')
+			obj.level = 1;
+
+		if(type == 'dark')
+			this.m_darkList.push(obj);
+
 		return obj;
 	}
 
@@ -288,14 +337,6 @@ var ObjManager = function()
 		} 
 	}
 
-	this.GetChrFromScreenPos = function(_x, _y)
-	{
-		var x = parseInt(_x) + g_cameraX;
-		var y = parseInt(_y) + g_cameraY;
-
-		return this.GetChrByPos(x, y);
-	}
-
 	this.CheckCollision = function(x, y, obj)
 	{ 
 		if(obj.isDead)
@@ -321,43 +362,16 @@ var ObjManager = function()
 
 	this.GetChrByPos = function(x,y)
 	{ 
+		var list = [];
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
 			if((item.x == x) && (item.y == y))
-				return item;
+				list.push(item);
 		}
 
-		return null;
+		return list;
 	}
-
-	this.PickChar = function(chr)
-	{
-		if(chr.picked == true)
-			return;
-
-		for(var i in this.m_list)
-		{
-			if(this.m_list[i] == chr)
-				this.m_list[i].Picked();
-			else
-				this.m_list[i].Unpicked();
-				//chr.picked = false;
-		}
-
-		removeFromList(this.m_list, chr);
-		this.m_list.push(chr);
-
-		console.log('chr picked');
-		console.log(chr);
-		return chr;
-	} 
-
-	this.ClearPickedObj = function()
-	{ 
-		for(var i in this.m_list)
-			this.m_list[i].Unpicked();
-	} 
 
 	this.Move = function(ax, ay)
 	{
@@ -376,10 +390,7 @@ var ObjManager = function()
 		{
 			var item = this.m_list[i];
 			if(item.ax != 0 || item.ay != 0)
-			{
-				console.log(item);
 				return true;
-			}
 		} 
 		return false;
 	}
@@ -395,4 +406,5 @@ var ObjManager = function()
 		} 
 		return cnt;
 	}
+
 }; 
