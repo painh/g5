@@ -229,6 +229,18 @@ var SceneIngame = function()
 	
 	this.Update = function()
 	{ 
+		if(KeyManager.IsKeyPress(KEY_UP))
+			this.pressUp();
+
+		if(KeyManager.IsKeyPress(KEY_DOWN))
+			this.pressDown();
+
+		if(KeyManager.IsKeyPress(KEY_LEFT))
+			this.pressLeft();
+
+		if(KeyManager.IsKeyPress(KEY_RIGHT))
+			this.pressRight();
+
 		if(g_playerHP < 0)
 			this.state = 'gameOver';
 
