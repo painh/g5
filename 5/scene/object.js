@@ -8,8 +8,11 @@ var Obj = function()
 	this.maxHP = 10;
 	this.ap = 10;
 	this.exp = 0;
-	this.turnLife = 3;
+	this.turnLife = 0;
+	this.hpRegen = 0.5;
+//	this.turnLife = 3;
 
+	this.scale = 1.0;
 	this.type = 0;
 	this.level = 0;
 
@@ -18,9 +21,13 @@ var Obj = function()
 
 	this.Update = function()
 	{
+		this.scale -= 0.1;
+		if(this.scale < 1.0)
+			this.scale = 1.0;
+
+
 		switch(this.type)
 		{
-			case 'heart':
 			case 'block':
 			case 'box':
 			case 'box2':
@@ -60,7 +67,8 @@ var Obj = function()
 
 				case 'mon':
 					if(this.type == 'gold' ||
-						(this.type == 'turn'))
+						(this.type == 'turn') ||
+						(this.type == 'heart') )
 						flag = true;
 					break;
 			} 
@@ -68,9 +76,13 @@ var Obj = function()
 			if(ret[i].type == 'mon' && this.type == 'mon')
 			{
 					ret[i].isDead = true;
-					this.level += ret[i].level;
+					var level = this.level;
+					if(level < ret[i].level)
+						level = ret[i].level;
+					this.level = level + 1;
 					this.maxHP = this.level * 10;
 					this.hp = this.maxHP;
+					this.turnLife = 8;
 					flag = false;
 			}
 
@@ -81,11 +93,17 @@ var Obj = function()
 					flag = false;
 			}
 
+			if(ret[i].type == 'heart' && this.type == 'heart')
+			{
+					ret[i].isDead = true;
+					this.level += ret[i].level;
+					flag = false;
+			}
+
 			if(ret[i].type == 'gold' && this.type == 'gold')
 			{
 					ret[i].isDead = true;
 					this.level += ret[i].level;
-					this.turnLife = 3;
 					flag = false;
 			}
 
@@ -97,7 +115,8 @@ var Obj = function()
 					target = this;
 
 				target.isDead = true;
-				g_ingame.state = 'merchant';
+
+				g_ingame.OpenShop();
 			}
 
 			if((this.type == 'player' && ret[i].type == 'gold') ||
@@ -108,6 +127,14 @@ var Obj = function()
 					gold = this;
 
 				g_gold += ret[i].level;
+				g_goldAll += ret[i].level;
+
+				if(g_prevMerchantSpawnGoldAll - g_goldAll > 10)
+				{
+					g_objList.AddMerchant();
+					g_prevMerchantSpawnGoldAll = g_goldAll;
+				}
+
 				gold.isDead = true;
 				flag = false;
 			}
@@ -130,12 +157,17 @@ var Obj = function()
 			if((this.type == 'player' || this.type == 'mon') && ret[i].type == 'box')
 				ret[i].type = 'box2';
 
-			if(this.type == 'player' && ret[i].type == 'heart')
+			if((this.type == 'player' && ret[i].type == 'heart') ||
+				(this.type == 'heart' && ret[i].type == 'player'))
 			{ 
-				g_player.hp++;	
+				var heart = ret[i];
+				if(this.type != 'player')
+					heart = this;
+
+				g_player.hp += heart.level;
 				if(g_player.hp >= g_player.maxHP)
 					g_player.hp = g_player.maxHP;
-				ret[i].isDead = true;
+				heart.isDead = true;
 				flag = false;
 			} 
 
@@ -154,11 +186,6 @@ var Obj = function()
 				if(enemy.hp <= 0 && g_player.hp > 0)
 				{
 					enemy.isDead = true;
-					for(var i = 0; i < 3; ++i)
-					{
-						g_objList.RandomGen('turn');
-						g_objList.RandomGen('gold');
-					}
 
 					g_player.exp += enemy.level;
 					
@@ -171,7 +198,13 @@ var Obj = function()
 						g_player.hp = g_player.maxHP;
 						g_player.ap += 10;
 
-						g_objList.RandomGen('merchant');
+						g_objList.AddMerchant();
+					}
+
+					for(var i = 0; i < 3; ++i)
+					{
+//						g_objList.RandomGen('turn');
+						g_objList.RandomGen('gold');
 					}
 				}
 				else
@@ -212,12 +245,52 @@ var Obj = function()
 	
 		var x = this.x - g_cameraX;
 		var y = this.y - g_cameraY;
+		var img = g_imgs[this.type];
 
-		Renderer.Img(x, y, g_imgs[this.type]);
+		if(this.type == 'mon' && g_player.hp > 0)
+		{
+			var enemyAp = this.level * 3;
+			var enemyExp = this.level; 
+			var maxExp = g_player.level * 2;
+
+			if((g_player.exp + enemyExp >= g_player.level * 2)  && g_player.ap >= this.hp)
+				img = g_imgs['mon_green'];
+
+			if(g_player.hp > enemyAp)
+				img = g_imgs['mon_green']
+		}
+
+		Renderer.ImgBlt(x - (TILE_WIDTH * this.scale - TILE_WIDTH ) / 2, 
+					y - (TILE_HEIGHT * this.scale - TILE_HEIGHT) / 2, 
+				img.img, 
+				0, 0, img.width, img.height,	
+				TILE_WIDTH * this.scale, TILE_HEIGHT * this.scale);
+
+		if(this.turnLife == 0 && this.type == 'mon')
+		{
+			Renderer.SetFont('8pt Arial');
+			var text = 'range attack!';
+			var textWidth = Renderer.GetTextWidth(text); 
+			Renderer.SetColor('#000');
+			Renderer.Rect(x, y + Renderer.GetFontSize() , textWidth, Renderer.GetFontSize());
+			Renderer.SetColor('#f00');
+			Renderer.Text(x, y + Renderer.GetFontSize() , text);
+		}
+
+		if(this.turnLife > 0)
+		{
+			Renderer.SetFont('8pt Arial');
+			var text = 'turn.'+this.turnLife;
+			var textWidth = Renderer.GetTextWidth(text); 
+			Renderer.SetColor('#000');
+			Renderer.Rect(x, y + Renderer.GetFontSize() , textWidth, Renderer.GetFontSize());
+			Renderer.SetColor('#0f0');
+			Renderer.Text(x, y + Renderer.GetFontSize() , text);
+		}
 
 		if(this.level > 0)
 		{
-			Renderer.SetFont('5pt Arial');
+			Renderer.SetFont('8pt Arial');
 			var text = 'lv.'+this.level;
 			var textWidth = Renderer.GetTextWidth(text); 
 			Renderer.SetColor('#000');
@@ -240,17 +313,6 @@ var Obj = function()
 			}
 		}
 
-		if(this.turnLife > 0)
-		{
-			Renderer.SetFont('5pt Arial');
-			var text = 'turn.'+this.turnLife;
-			var textWidth = Renderer.GetTextWidth(text); 
-			Renderer.SetColor('#000');
-			Renderer.Rect(x, y + Renderer.GetFontSize() , textWidth, Renderer.GetFontSize());
-			Renderer.SetColor('#0f0');
-			Renderer.Text(x, y + Renderer.GetFontSize() , text);
-		}
-
 //		Renderer.Text(x + TILE_WIDTH / 2 - textWidth / 2, 
 //						y + TILE_HEIGHT / 2 - Renderer.GetFontSize() / 2 , this.hp);
 	}
@@ -260,11 +322,30 @@ var Obj = function()
 		if(this.isDead)
 			return;
 
-		if(this.turnLife > 0)
+		if(this.type == 'player')
+		{
+			this.hp += this.hpRegen;
+			if(this.hp >= this.maxHP)
+				this.hp = this.maxHP;
+		}
+
+		if(this.turnLife >= 0)
 		{
 			this.turnLife--;
+			if(this.turnLife < 0)
+				this.turnLife = 0;
+
 			if(this.turnLife == 0)
-				this.isDead = true;
+			{ 
+				if(this.type == 'merchant')
+					this.isDead = true; 
+
+				if(this.type == 'mon')
+				{
+					g_player.hp -= (this.level * 3) / 3;
+					this.scale = 2.0;
+				}
+			}
 		}
 	}
 };
@@ -281,18 +362,17 @@ var ObjManager = function()
 
 	this.tryRandomGen = function(type)
 	{
-		var genList = ['gold', 'heart'];
+		var genList = ['gold'];
 		var rand = randomRange(0, genList.length - 1);	
 		var rand2 = randomRange(0, this.m_darkList.length - 1);	
 		if(!type)
-			type = genList[rand];
-
+			type = genList[rand]; 
 
 		var ret = false;
 		var max = 1;
 
 		if(type == 'box')
-			max = 3;
+			max = 2;
 
 		for(var i = 0; i < max; ++i)
 		{
@@ -305,13 +385,14 @@ var ObjManager = function()
 				
 				if(type == 'mon')
 				{
-					obj.level = g_player.level + (randomRange(0, 5) - 3);
+					obj.level = g_player.level + Math.round(g_player.level / 3);
 					if(obj.level <= 0)
 						obj.level = 1;
 					obj.maxHP = obj.level * 10; 
 					obj.hp = obj.maxHP; 
 				}
 				ret = true;
+				break;
 			}
 		}
 
@@ -325,28 +406,20 @@ var ObjManager = function()
 				return;
 	}
 
-	this.Add = function(x, y, type)
+	this.Generate = function(x, y, type)
 	{
 		var obj = new Obj();
 		
 		obj.x = x;
 		obj.y = y;
-		obj.type = type;
+		obj.type = type; 
 
-		this.m_list.push(obj); 
-		if(type == 'merchant')
-			obj.turnLife = 3;
-
-		if(type == 'player' || type == 'mon' || type =='gold' || type=='turn')
-			obj.level = 1;
-
-		if(type == 'dark')
-			this.m_darkList.push(obj);
+		if(type == 'player' || type == 'mon' || type =='gold' || type=='turn' || type=='heart')
+			obj.level = 1; 
 
 		switch(type)
 		{
 			case 'dark':
-			case 'mon':
 			case 'block':
 			case 'player':
 			case 'box':
@@ -355,7 +428,26 @@ var ObjManager = function()
 				obj.turnLife = 0;
 				break;
 
+			case 'merchant':
+				obj.turnLife = 4;
+				break;
+
+			case 'mon':
+				obj.turnLife = 8;
+				break;
+
 		}
+
+		return obj;
+	}
+
+	this.Add = function(x, y, type)
+	{
+		var obj = this.Generate(x, y, type);
+		this.m_list.push(obj); 
+
+		if(type == 'dark')
+			this.m_darkList.push(obj);
 
 		return obj;
 	}
@@ -451,6 +543,18 @@ var ObjManager = function()
 		return false;
 	}
 
+	this.GetObjByType = function(type)
+	{
+		var list = []
+		for(var i in this.m_list)
+		{
+			var item = this.m_list[i];
+			if(item.type == type)
+				list.push(item);
+		} 
+		return list;
+	}
+
 	this.GetEnemyCnt = function()
 	{
 		var cnt = 0;
@@ -473,5 +577,13 @@ var ObjManager = function()
 		} 
 	}
 
+	this.AddMerchant = function()
+	{ 
+		var merchant = g_objList.GetObjByType('merchant');
+		if(merchant.length == 0)
+			g_objList.RandomGen('merchant');
+		else
+			merchant.turnLife = 4;
+	}
 
 }; 

@@ -25,23 +25,13 @@ var OBJECT_TYLE_BLOCK = 1;
 var stages = [
 { map : 
 [
-"xxxxxxxxxxx",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x...M.....x",
-"x...p.....x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x.........x",
-"x........1x",
-"x.........x",
-"x........1x",
-"x.........x",
-"xxxxxxxxxxx",
+"xxxxxxx",
+"x.M...x",
+"x.p...x",
+"x.....x",
+"x.....x",
+"x.....x",
+"xxxxxxx",
 ]},
 { map : 
 [
@@ -149,10 +139,10 @@ var SceneIngame = function()
 		}
 
 
-		for(var i = 0; i < 10; ++i)
-			g_objList.RandomGen('heart');
+		for(var i = 0; i < 3; ++i)
+			g_objList.RandomGen('gold');
 
-		for(var i = 0; i < 5; ++i)
+		for(var i = 0; i < 3; ++i)
 			g_objList.RandomGen('box2');
 
 		for(var i = 0; i < 3; ++i)
@@ -181,7 +171,7 @@ var SceneIngame = function()
 
 //		this.state = 'title';
 
-		var ui_width = 30;
+		var ui_width = 50;
 		g_gameUI.Add(ui_width, 0, Renderer.width - 100, ui_width, 'up', this, 'pressUp');
 		g_gameUI.Add(Renderer.width - ui_width, ui_width, ui_width, Renderer.height - 100, 'right', this, 'pressRight');
 		g_gameUI.Add(ui_width, Renderer.height - ui_width, Renderer.width - 100, ui_width, 'down', this, 'pressDown');
@@ -197,8 +187,10 @@ var SceneIngame = function()
 		ui_y += 60;
 		g_merchant.Add(0, ui_y, 200, ui_width, '공격 증가 1gold', this, 'pressIncrAp');
 		ui_y += 60;
-		g_merchant.Add(0, ui_y, 200, ui_width, 'box 구입 5gold', this, 'pressIncrBox');
+		g_merchant.Add(0, ui_y, 200, ui_width, '턴 구입 1gold = 2turn', this, 'pressIncrTurn');
 		ui_y += 60;
+//		g_merchant.Add(0, ui_y, 200, ui_width, 'box 구입 5gold', this, 'pressIncrBox');
+//		ui_y += 60;
 		g_merchant.Add(0, ui_y, 200, ui_width, '돌아가기', this, 'pressExit');
 	}
 
@@ -270,6 +262,14 @@ var SceneIngame = function()
 		}
 	}
 
+	this.pressIncrTurn = function()
+	{
+		if(g_gold >= 1 )
+		{
+			g_gold -= 1;
+			g_turn += 2;
+		}
+	} 
 
 	this.pressExit = function()
 	{
@@ -344,19 +344,19 @@ var SceneIngame = function()
 //			this.LoadStage(g_stageIDX);
 		}
 
-		if(MouseManager.Clicked)
-		{
-			var x = Math.round(MouseManager.x / TILE_WIDTH ) * TILE_WIDTH;
-			var y = Math.round(MouseManager.y / TILE_HEIGHT) * TILE_HEIGHT;
-
-			var list = g_objList.GetChrByPos(x, y);
-
-			if(list.length == 1 && list[0].type == 'dark' && g_box > 0)
-			{
-				g_box--;
-				var obj = g_objList.Add(x, y, 'box'); 
-			}
-		}
+//		if(MouseManager.Clicked)
+//		{
+//			var x = Math.round(MouseManager.x / TILE_WIDTH ) * TILE_WIDTH;
+//			var y = Math.round(MouseManager.y / TILE_HEIGHT) * TILE_HEIGHT;
+//
+//			var list = g_objList.GetChrByPos(x, y);
+//
+//			if(list.length == 1 && list[0].type == 'dark' && g_box > 0)
+//			{
+//				g_box--;
+//				var obj = g_objList.Add(x, y, 'box'); 
+//			}
+//		}
 
 	}
 
@@ -365,11 +365,11 @@ var SceneIngame = function()
 		this.combo = 0;
 		g_turn--;
 		g_objList.DoTurn();
-		g_objList.RandomGen();
-		g_objList.RandomGen('box2');
+		for(var i = 0; i < 3; ++i)
+			g_objList.RandomGen();
 
-		for(var i = 0; i < 1; ++i)
-			g_objList.RandomGen('mon');
+		g_objList.RandomGen('box2'); 
+		g_objList.RandomGen('mon');
 	}
 	
 	this.Render = function()
@@ -480,7 +480,7 @@ var SceneIngame = function()
 			Renderer.Text(0, 20, 'Player MaxHP : ' + g_player.maxHP);
 			Renderer.Text(0, 40, 'Player 공격력 : ' + g_player.ap);
 			Renderer.Text(0, 60, 'gold : ' + g_gold);
-			Renderer.Text(0, 80, 'box : ' + g_box);
+			Renderer.Text(0, 80, 'turn : ' + g_turn);
 
 			g_merchant.Render();	
 		}
