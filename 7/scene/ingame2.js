@@ -21,7 +21,9 @@ var g_feverMax = 10;
 var g_feverTurnMax = 2;
 var g_feverLeft = 2;
 var g_killMonCnt = 0;
-var g_score = 0;
+var g_score = 0; 
+var g_questStartCnt = 0;
+var g_questCompleteCnt = 0;
 //-----------------------------------------------------------------------------------------------------
 //
 //
@@ -80,6 +82,9 @@ var g_leftTurn = g_leftTurnMax;
 var g_feverMode = false;
 
 var g_goldMax = 10;
+var g_questCnt = 0;
+var g_questCntMax = 0;
+var g_questType = '';
 
 function AddHP(val)
 {
@@ -112,6 +117,7 @@ function AddExp(val)
 //		g_objList.RandomGen('up_ap');
 //		g_objList.RandomGen('up_exp');
 		g_effectManager.Add(g_player.x - g_cameraX, g_player.y - g_cameraY, '#ffffff', 'level up!');
+		$.growl('레벨 상승! 공격력과 방어력이 1씩 증가');
 	}
 }
 
@@ -123,6 +129,7 @@ function ChangeFever(val)
 
 	g_fever += val;
 
+	$.growl('피버 값 증가! ' + val);
 	if(g_fever >= g_feverMax)
 	{
 		g_fever = g_feverMax;
@@ -232,8 +239,6 @@ var SceneIngame = function()
 
 		console.log('start!');
 		
-		$.growl("<a href='viewall.php'>view record</a>");
-
 	}
 	this.LoadImg = function(name, img, width, height)
 	{
@@ -256,6 +261,8 @@ var SceneIngame = function()
 		this.LoadImg('merchant', 'npc.png', 240, 240);
 		this.LoadImg('turn', 'turn.gif', 30, 30);
 		this.LoadImg('mon_onetunekill', 'mon_green.png', 128, 128);
+		this.LoadImg('ddong', 'ddong.gif', 50, 50);
+		this.LoadImg('npc', 'npc.png', 240, 240);
 
 
 //		this.state = 'title';
@@ -304,6 +311,7 @@ var SceneIngame = function()
 
 		this.LoadStage(g_stageIDX);
 
+		this.AddQuest();
 	}
 
 	this.pressUp = function()
@@ -379,6 +387,12 @@ var SceneIngame = function()
 			return;
 		}
 
+		if(g_questCntMax > 0)
+		{
+			if(g_questCnt > g_questCntMax)
+				g_questCnt = g_questCntMax; 
+		}
+
 		var cur = new Date();
 //		if(cur.getTime() - g_prevDate.getTime() > 1000)
 //		{
@@ -421,6 +435,8 @@ var SceneIngame = function()
 									'fever' : g_fever,
 									'fever_cnt' : g_feverCnt,
 									'def' : g_player.def, 
+									'quest_start_cnt' : g_questStartCnt, 
+									'quest_complete_cnt' : g_questCompleteCnt, 
 									}, function()
 			{
 				
@@ -508,6 +524,43 @@ var SceneIngame = function()
 		{
 			g_ingame.OpenShop();
 		}
+
+		this.AddQuest();
+
+		if(g_questCntMax > 0 && g_questType == 'ddong')
+		{
+			var list = g_objList.GetObjByType('ddong');
+			if( list.length + g_questCnt < g_questCntMax)
+				g_objList.RandomGen('ddong');
+		}
+	}
+
+	this.AddQuest = function()
+	{
+		var cnt = g_objList.GetNPCCnt();
+		if(cnt != 0)
+			return;
+
+		if(randomRange(0, 10) > 3)
+			return;
+
+		g_objList.RandomGen('npc');
+		g_questCnt = 0;
+		var questType = ['mon', 'ddong'];
+		g_questType = questType[randomRange(0, 1)];
+		if(g_questType == 'mon') 
+		{
+			$.growl('몬스터를 사냥하고 npc에게 돌아가 보상을 받으세요!');
+			g_questCntMax = 10; 
+		}
+		else
+		{
+			$.growl('똥을 수집하고 npc에게 돌아가 보상을 받으세요!');
+			g_questCntMax = 3; 
+			for(var i = 0; i < g_questCntMax;++i) 
+				g_objList.RandomGen('ddong');
+		}
+		g_questStartCnt++;
 	}
 	
 	this.Render = function()
@@ -611,23 +664,43 @@ var SceneIngame = function()
 			Renderer.Text(0, Renderer.height - 30, 'fever : ' + g_fever + " / " + g_feverMax);
 		//
 		// exp
+		var width = Renderer.width / 2;
 		Renderer.SetColor('#0000ff');
-		Renderer.Rect(0, 30, Renderer.width, 20);
+		Renderer.Rect(0, 30, width, 20);
 		Renderer.SetColor('#00ff00');
 		var maxExp = g_player.level * 2;
-		Renderer.Rect(0, 30, g_player.exp / maxExp * Renderer.width, 20);
+		Renderer.Rect(0, 30, g_player.exp / maxExp * width, 20);
 		Renderer.SetColor('#fff'); 
 		Renderer.Text(0, 30, 'level : ' + g_player.level + " exp : " + g_player.exp + " / " + maxExp);
 		//
 		// gold
 		Renderer.SetColor('#0000ff');
-		Renderer.Rect(0, 0, Renderer.width, 20);
+		Renderer.Rect(0, 0, width, 20);
 		Renderer.SetColor('#ffff00');
 		var maxExp = g_player.level * 2;
-		Renderer.Rect(0, 0, g_gold / g_goldMax * Renderer.width, 20);
+		Renderer.Rect(0, 0, g_gold / g_goldMax * width, 20);
 		Renderer.SetColor('#f00'); 
 		Renderer.Text(0, 0, 'gold : ' + g_gold + ' / ' + g_goldMax);
 
+		//quest
+
+		if(g_questCntMax > 0)
+		{
+			var img = g_imgs['mon'];
+			if(g_questType == 'ddong')
+				img = g_imgs['ddong'];
+
+			Renderer.ImgBlt( width + 20 , 
+								0, img.img, 
+								0, 0, img.width, img.height,	
+								50, 50);
+
+
+			Renderer.SetColor('#000');
+			Renderer.SetFont('16pt Arial');
+			Renderer.Text(width + 70, 20, ' x ' + g_questCnt + ' / ' + g_questCntMax);
+		}
+		
 		g_effectManager.Render(); 
 		Renderer.SetAlpha(1.0); 
 		Renderer.SetColor("#ffffff"); 

@@ -57,6 +57,8 @@ var Obj = function()
 			case 'box2':
 			case 'merchant':
 			case 'dark':
+			case 'npc':
+			case 'ddong':
 				this.ax = 0;
 				this.ay = 0;
 				return;
@@ -73,6 +75,7 @@ var Obj = function()
 		for(var i in ret)
 		{
 			var flag = false;
+			var target = ret[i];
 			switch(ret[i].type)
 			{
 				case 'block':
@@ -85,6 +88,8 @@ var Obj = function()
 				case 'up_fever':
 				case 'up_ap':
 				case 'up_exp':
+				case 'npc':
+				case 'ddong':
 					flag = true;
 					break;
 
@@ -94,58 +99,73 @@ var Obj = function()
 						(this.type == 'up_ap') ||
 						(this.type == 'up_exp') ||
 						(this.type == 'turn') ||
+						(this.type == 'ddong') ||
 						(this.type == 'heart') )
 						flag = true;
 					break;
 			} 
 
-			if(ret[i].type == 'mon' && this.type == 'mon')
+			if(target.type == 'mon' && this.type == 'mon')
 			{
-					ret[i].isDead = true;
-					var ap = Math.max(ret[i].ap, this.ap);
-					var def = Math.max(ret[i].def, this.def);
-					var level = Math.max(ret[i].level, this.level);
-					var hp = Math.max(ret[i].hp, this.hp);
+				target.isDead = true;
+				var ap = Math.max(target.ap, this.ap);
+				var def = Math.max(target.def, this.def);
+				var level = Math.max(target.level, this.level);
+				var hp = Math.max(target.hp, this.hp);
 
-					this.level = level + 1;
-					//this.hp = ret[i].hp + this.hp;
-					this.hp = hp + 1;
-					this.ap = ap + 1;
-					this.def = def;
-					this.turnLife = 8;
-					flag = false;
+				this.level = level + 1;
+				//this.hp = ret[i].hp + this.hp;
+				this.hp = hp + 1;
+				this.ap = ap + 1;
+				this.def = def;
+				this.turnLife = 8;
+				flag = false;
 			}
 
-			if(ret[i].type == 'turn' && this.type == 'turn')
+			if(target.type == 'turn' && this.type == 'turn')
 			{
-					ret[i].isDead = true;
-					this.level += ret[i].level;
-					flag = false;
+				target.isDead = true;
+				this.level += target.level;
+				flag = false;
 			}
 
-			if(ret[i].type == 'heart' && this.type == 'heart')
+			if(target.type == 'heart' && this.type == 'heart')
 			{
-					ret[i].isDead = true;
-					this.level += ret[i].level;
-					flag = false;
+				target.isDead = true;
+				this.level += target.level;
+				flag = false;
 			}
 
-			if(ret[i].type == 'gold' && this.type == 'gold')
+			if(target.type == 'gold' && this.type == 'gold')
 			{
-					ret[i].isDead = true;
-					this.level += ret[i].level;
-					flag = false;
+				target.isDead = true;
+				this.level += target.level;
+				flag = false;
 			}
 
-			if((this.type == 'player' || this.type == 'mon') && ret[i].type == 'box')
-				ret[i].type = 'box2';
-
-			var obj =  GetPlayer(this, ret[i]);
-
-			if((this.type == 'player' || this.type == 'mon' )&& ret[i].type == 'box2')
+			if(this.type == 'mon' && target.type == 'npc')
 			{
-				ret[i].isDead = true;
+				target.hp -= 1;
+				if(target.hp <= 0)
+				{
+					$.growl('npc가 죽었습니다.');
+					$.growl('퀘스트를 실패하였습니다!'); 
+					g_objList.ClearObjectType('ddong');
+					g_questCntMax = 0;
+					g_questCnt = 0;
+					g_questType = '';
+					target.isDead = true;
+				}
+					$.growl('npc가 공격 받고 있습니다.');
 			}
+
+			if((this.type == 'player' || this.type == 'mon') && target.type == 'box')
+				target.type = 'box2';
+
+			var obj =  GetPlayer(this, target);
+
+			if((this.type == 'player' || this.type == 'mon' )&& target.type == 'box2')
+				target.isDead = true;
 			
 			if(obj)
 			{ 
@@ -153,6 +173,22 @@ var Obj = function()
 				var other = obj.other;
 				var effectX = other.x - g_cameraX;
 				var effectY = other.y - g_cameraY;
+
+				if(other.type == 'npc')
+				{
+					if(g_questCnt >= g_questCntMax)
+					{
+						other.isDead = true; 
+						g_questCntMax = 0;
+						$.growl('퀘스트를 완료하였습니다. + 10골드');
+						AddGold(10);
+						g_questType = '';
+						g_objList.ClearObjectType('ddong');
+						g_questCompleteCnt++;
+					}
+					else
+						$.growl('아직 퀘스트를 완료하지 못하였습니다.');
+				}
 
 				if(other.type == 'merchant')
 				{
@@ -178,6 +214,13 @@ var Obj = function()
 				if(other.type == 'up_ap')
 				{
 					g_player.ap += g_player.level;
+					other.isDead = true;
+					flag = false;
+				}
+
+				if(other.type == 'ddong')
+				{ 
+					g_questCnt++; 
 					other.isDead = true;
 					flag = false;
 				}
@@ -236,7 +279,13 @@ var Obj = function()
 					if((other.hp <= 0 && player.hp > 0) || g_feverMode)
 					{
 						other.isDead = true;
-						g_killMonCnt++;
+						g_killMonCnt++; 
+
+						if(g_questCntMax > 0 && g_questType == 'mon')
+						{
+							g_questCnt++;
+							g_questCnt = Math.min(g_questCntMax, g_questCnt);
+						}
 
 						var levelUp = AddExp(other.level);
 						if(levelUp)
@@ -341,6 +390,7 @@ var Obj = function()
 		{
 			case 'player':
 			case 'mon':
+			case 'npc':
 				showStat = true;
 				break;
 		}
@@ -348,8 +398,13 @@ var Obj = function()
 		if(showStat)
 		{
 			Renderer.SetFont('8pt Arial');
-			var text = this.ap; 
-			text += '/'+this.def;
+			var text = '';
+			
+			if(this.type == 'npc')
+				text += 'hp : ' + this.hp;
+
+			if(this.type == 'player' || this.type == 'mon')
+				text += this.ap+'/'+this.def;
 
 			if(this.type == 'mon')
 				text += '/'+this.hp;
@@ -501,10 +556,13 @@ var ObjManager = function()
 				obj.turnLife = 8;
 				break;
 
-			default:
-				obj.turnLife = -1; 
+			case 'npc':
+				obj.hp = 2;
 				break;
 
+			default:
+				obj.turnLife = -1; 
+				break; 
 		}
 
 		return obj;
@@ -649,6 +707,12 @@ var ObjManager = function()
 		} 
 	}
 
+	this.GetNPCCnt = function()
+	{ 
+		var list = g_objList.GetObjByType('npc');
+		return list.length;
+	}
+
 	this.AddMerchant = function()
 	{ 
 		var merchant = g_objList.GetObjByType('merchant');
@@ -660,17 +724,30 @@ var ObjManager = function()
 
 	this.GetAllGold = function()
 	{ 
-		var deadList = [];
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
 			if(item.type != 'gold')
 				continue;
 				
-			item.isDead = true;
-			deadList.push(item);
 			AddGold(item.level);
 			g_effectManager.Add(item.x - g_cameraX, item.y - g_cameraY, '#ffffff', 'gold + ' + item.level);
+		} 
+
+		this.ClearObjectType('gold');
+
+	} 
+	this.ClearObjectType = function(type)
+	{
+		var deadList = [];
+		for(var i in this.m_list)
+		{
+			var item = this.m_list[i];
+			if(item.type != type)
+				continue;
+				
+			item.isDead = true;
+			deadList.push(item);
 		} 
 
 		for(var i in deadList)
@@ -682,5 +759,5 @@ var ObjManager = function()
 			if(item.isDead)
 				console.log('dead alive');
 		} 
-	} 
+	}
 }; 
