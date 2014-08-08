@@ -7,15 +7,18 @@ var Btn = function()
 	this.clickFunc;
 	this.clicked = false;
 	this.caption = 'button';
+	this.captionColor = '#fff';
 	this.eventReceiver;
 
 	this.Render = function()
 	{
 		Renderer.SetColor("#000000"); 
-		Renderer.SetAlpha(0.8);
+		Renderer.SetAlpha(0.2);
 		Renderer.Rect(this.x, this.y, this.width, this.height);
-		Renderer.SetColor("#ffffff"); 
 		Renderer.SetAlpha(1);
+		Renderer.SetColor('#fff'); 
+		Renderer.RectStroke(this.x, this.y, this.width, this.height);
+		Renderer.SetColor(this.captionColor); 
 		Renderer.Text(this.x, this.y, this.caption);
 	}
 	
@@ -54,6 +57,8 @@ var BtnManager = function()
 		btn.clickFunc = clickFunc; 
 
 		this.list.push(btn);
+
+		return btn;
 	}
 
 	this.Update = function()
@@ -78,6 +83,11 @@ var BtnManager = function()
 			var item = this.list[i];
 			item.Render();
 		}
+	}
+
+	this.Clear = function()
+	{
+		this.list = [];
 	}
 } 
 

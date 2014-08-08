@@ -13,14 +13,14 @@ $config["srcPath"] = "./";
 $config['showLogOnDebugger'] = true;
 $config['showLogOnConsole'] = true;
 $config['needInstall'] = false;
-$config['title'] = '2048 dungeon';
+$config['title'] = 'dragon fist';
 
 $js_list = [
 	$config["srcPath"].'scene/effect.js',
 	$config["srcPath"].'scene/object.js',
 	$config["srcPath"].'scene/gui.js',
 	$config["srcPath"].'scene/logo.js',
-	$config["srcPath"].'scene/ingame2.js'
+	$config["srcPath"].'scene/index.js'
 ];
 
 $time = time();
@@ -51,9 +51,6 @@ echo <<< EOF
 			아이패드는 상단에, 아이폰은 하단에서 찾을 수 있습니다.  
 		</div>
 		<div id="game">
-		</div>
-		<div>
-		thanks : http://www.freesfx.co.uk/
 		</div>
         <script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
 		<script src="entry.js?time={$time}"></script>

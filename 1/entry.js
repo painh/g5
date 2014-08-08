@@ -20,8 +20,8 @@ $(document).ready(function()
 		if(createjs == null)
 			return;
 
-		clearInterval(handle);
-		if (!createjs.Sound.initializeDefaultPlugins()) { return; }
+//		clearInterval(handle);
+//		if (!createjs.Sound.initializeDefaultPlugins()) { return; }
 
 		var audioPath = "snd/";
 		function getSrc(src)
@@ -42,8 +42,8 @@ $(document).ready(function()
 
 		if(manifest.length > 0)
 		{
-			createjs.Sound.addEventListener("loadComplete", function() {});
-			createjs.Sound.registerManifest(manifest);
+//			createjs.Sound.addEventListener("loadComplete", function() {});
+//			createjs.Sound.registerManifest(manifest);
 		}
 	}, 1000); 
 } );

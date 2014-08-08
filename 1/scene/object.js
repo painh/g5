@@ -1,262 +1,361 @@
-var g_sizeTable = [ {r : 0, c : '#FF50CF'},
-					{r : 1, c : '#79FFCE'},
-					{r : 2, c : '#AACDFF'},
-					{r : 3, c : '#FFCD00'},
-					{r : 4, c : '#CCBB88'},
-					{r : 5, c : '#8844BB'},
-					{r : 6, c : '#FF22AA'},
-					{r : 7, c : '#88CC77'},
-					{r : 8, c : '#111111'},
-					{r : 9, c : '#44FF99'},
-					{r : 10, c : '#88DD88'},
-					{r : 11, c : '#44BBFF'}, 
-					{r : 12, c : '#7799AA'}, 
-					{r : 12, c : '#FF33AA'}
-				];
-
-var size = 15;
-for(var i  in g_sizeTable)
+function GetPlayer(obj1, obj2)
 {
-	g_sizeTable[i].r = size;
-	size += 2;
+	var ret = { player : null, other : null};
+
+	if(obj1.isDead || obj2.isDead)
+		return false;
+
+	if(obj1.type == 'player')
+	{
+		ret.player = obj1;
+		ret.other = obj2;
+		return ret;
+	} 
+
+	if(obj2.type == 'player')
+	{
+		ret.player = obj2;
+		ret.other = obj1;
+		return ret;
+	}
+
+	return false;
+}
+
+function AddGold(x, y) {
+	var obj = g_objList.Add(x, y, 'coin');	
+	if(randomRange(0, 1) == 0)
+		obj.ax = -1;
+	else
+		obj.ax = 1;
+
+	obj.ay = -5;
+	obj.default_ay = 0.3;
+	obj.max_ay = 5;
+	obj.hp = 0;
+	obj.max_ay = 10;
 }
 var Obj = function()
 {
-	this.screenPos = 0;
 	this.x = 0;
 	this.y = 0;
 	this.ax = 0;
 	this.ay = 0;
-	this.r = 0;
-	this.width = 1;
-	this.height = 1;
-	this.hp = 3;
+	this.default_ay = 0;
+	this.hp = 1;
+	this.maxHP = 1;
 
+	this.width = TILE_WIDTH;
+	this.height = TILE_HEIGHT;
+
+	this.col_x = 0;
+	this.col_y = 0;
+	this.col_width = TILE_WIDTH;
+	this.col_height = TILE_HEIGHT;
+
+	this.scaleDefalt = 1.0;
+	this.renderX = this.x;
+	this.renderY = this.y;
+	this.scale = 1.0;
 	this.type = 0;
+	this.level = 0;
+	this.state = 'unknown';
+	this.stateChangeDate = new Date();
 
 	this.isPlayer = false;
 	this.isDead = false;
-	this.scaleSize = 0;
-	this.scaleState = 'normal';
+	this.visible = false;
 
-	this.Picked = function()
-	{
-		this.picked = true;
-		this.scaleSize = 0;
-		this.scaleState = 'picked';
+	this.firstFrame = true;
+
+	this.SetState = function(state) {
+		this.state = state;
+		this.stateChangeDate = new Date(); 
 	}
 
-	this.Unpicked = function()
-	{
-		if(this.scaleState != 'picked')
+	this.DustEffect = function() {
+		effect = g_effectManager.Add( this.x + this.width / 2 + 5 - randomRange(0, 10),
+							this.y + this.height / 2 + 5 - randomRange(0, 10),
+							'#000', '', g_imgs['dust'], this.width * 2, this.height * 2);
+		effect.world = true; 
+	}
+
+	this.Damaged = function(dmg) {
+		if(this.isDead)
 			return;
 
-		this.picked = false;
-		this.scaleState = 'unpicked';
+		this.SetState('damaged');
+		this.hp -= dmg;
+		var effect = g_effectManager.Add(this.x + this.width / 2 + 5 - randomRange(0, 10), 
+											this.y, "#ff0000", "-"+dmg);
+		effect.world = true;
+
+		console.log('dmaged!' + dmg);
+
+		if(this.hp <= 0) {
+			this.isDead = true; 
+			this.DustEffect();
+			AddGold(this.x, this.y);
+
+			if(this.type == 'cragon') {
+				g_cragonTime = g_now.getTime() + CRAGON_TIME;
+				for(var i = 0; i < 30; ++i)
+					AddGold(randomRange(0, this.width), randomRange(this.y, this.y + this.height));
+			}
+		}
 	}
 
 	this.Update = function()
-	{
-		var scaleUnit = 1.8;
+	{ 
+		if(this.visibleDelay < totalFPS) {
+			this.visible = true;
+		}
+		else
+			return;
+
+		if(this.firstFrame) {
+			this.firstFrame = false;
+			this.SetState('normal');
+			if(this.type == "meteo") {
+				g_effectManager.Add( this.x + this.width / 2, Renderer.height / 2 , '#000', '', g_imgs['warn'], this.width / 2, this.height / 2);
+				g_effectManager.Add( this.x + this.width / 2 - g_imgs['redline'].width / 2, 0, '#000', '', g_imgs['redline']);
+			}
+		}
+
+		if(this.isDead)
+			return;
+
+		if(!this.visible)
+			return;
+
+		if(this.type == 'coin' && this.state == 'idle' && g_now - this.stateChangeDate > 5000) {
+			this.isDead = true;
+			return;
+		}
+
+		
+		if(this.type == 'meteo' && this.state == 'normal' && this.stateChangeDate - g_now > 1000) {
+			this.y = g_player.y - 500;
+			this.SetState('down');
+		}
 
 
-		switch(this.scaleState)
+		this.scale -= 0.05;
+		if(this.scale < 1.0)
+			this.scale = 1.0;
+
+		this.ay += this.default_ay;
+		this.ay = Math.min(this.max_ay, this.ay);
+
+		var prevX = this.x;
+		var prevY = this.y;
+
+		if(this.state == 'normal' || this.state == 'down') {
+			this.x += this.ax;
+			this.y += this.ay;
+
+			this.x = Math.max(0, this.x);
+			this.x = Math.min(Renderer.width - this.width, this.x);
+		}
+
+		if(this.type == "player") {
+			var list = g_objList.CheckCollision(this.x, this.y, this);
+			if(list.length > 0) {
+				for(var i = 0; i < list.length; ++i) {
+					var obj = list[0];
+
+					if(obj.type == 'coin' ) {
+						var eatable = true;
+						if(obj.state == 'normal') 
+							if(g_now - obj.stateChangeDate < 1000)
+								eatable = false;
+
+						if(eatable) {
+							obj.isDead = true;
+							g_coin++;
+							var eff = g_effectManager.Add(g_player.x, g_player.y, '#ff0', '+ 1');
+							eff.world = true;
+							eff.font='20pt Arial';
+						}
+					} else if(obj.type == 'meteo') {
+						obj.isDead = true;
+						this.DustEffect();
+//						this.Damaged(1);
+						this.ay = 10;
+					}
+					else {
+						if(this.ay < 0) { 
+							this.y = obj.y + obj.height;
+//							this.ay = 10;
+						}
+//						else
+//							if(obj.type.indexOf("mon_") == 0)
+//								this.ay = -5;
+//							else {
+//								this.y = obj.y + obj.height;
+////								this.ay = 10;
+//							}
+					}
+				}
+
+			}
+		}
+
+		if(this.y >= PLAYER_MAX_Y) {
+			if(this.type == "coin") {
+				this.ay = 0;
+				this.y = PLAYER_MAX_Y;
+				if(this.state == 'normal') {
+					this.SetState('idle');
+				}
+			}
+
+			if(this.type == "player") {
+				this.ay = 0;
+				this.y = PLAYER_MAX_Y;
+			}
+
+			if(this.type.indexOf("mon_") == 0) {
+				this.ay = 0;
+				this.y = PLAYER_MAX_Y;
+				this.isDead = true;
+				g_player.Damaged(1);
+				this.DustEffect();
+			}
+
+			if(this.type == "cragon") {
+				this.ay = 0;
+				this.y = PLAYER_MAX_Y;
+				this.isDead = true;
+				g_player.Damaged(999);
+				this.DustEffect();
+			}
+		}
+
+		if(this.y >= PLAYER_MAX_Y + 10) {
+			if(this.type == "meteo") {
+				this.DustEffect();
+				this.isDead = true;
+			} 
+		} 
+
+		this.renderX = this.x - g_cameraX;
+		this.renderY = this.y - g_cameraY;
+		var cur = new Date;
+
+		switch(this.state)
 		{
 			case 'normal':
-				if(this.scaleSize > 0)
-				{
-					this.scaleSize -= scaleUnit;
-					if(this.scaleSize < 0) this.scaleSize = 0;
-				} 
-				else
-				{
-					this.scaleSize += scaleUnit;
-					if(this.scaleSize > 0) this.scaleSize = 0;
-				}
-
 				break;
 
-			case 'unpicked':
-//				this.scaleSize -= scaleUnit;
-//				if(this.scaleSize < 0)
-//				{
-//					this.scaleSize = 0;
-					this.scaleState = 'normal';
-//				}
-				break;
-
-			case 'picked':
-//				this.scaleSize += scaleUnit;
-//				if(this.scaleSize > 10)
-//					this.scaleSize = 10; 
-				break;
-
-			case 'tie':
-				this.scaleSize -= scaleUnit;
-				if(this.scaleSize < -10)
-				{
-					this.scaleState = 'normal';
-					if(this.hp <= 0)
-						this.isDead = true;
+			case 'damaged':
+				if(cur.getTime() - this.stateChangeDate.getTime() > 100)
+					this.SetState('normal');
+				else {
+					this.renderX += randomRange(0, 10) - 5; 
+					this.renderY += randomRange(0, 10) - 5; 
 				}
 				break;
 
-			case 'win':
-				this.scaleSize += scaleUnit;
-				if(this.scaleSize > 10)
-					this.scaleState = 'normal';
-				break;
-
-			case 'dead':
-				this.scaleSize -= scaleUnit;
-				if(this.scaleSize < -10)
-				{
-					this.scaleState = 'normal';
-					this.isDead = true;
-				}
-				break;
-		}
-
-		switch(this.type)
-		{
-			case 'heart':
-			case 'block':
-			case 'dark':
-				this.ax = 0;
-				this.ay = 0;
-				return;
-
-		}
-
-		if(this.ax == 0 && this.ay == 0)
-			return;
-		var x = this.x + this.ax;
-		var y = this.y + this.ay;
-
-		var ret = g_objList.CheckCollision(x, y, this);
-		var flag = false;
-		for(var i in ret)
-		{
-			switch(ret[i].type)
-			{
-				case 'block':
-					flag = true;
-					break;
-			}
-			
-
-			if(ret[i].type.indexOf('lv') == 0 && this.type.indexOf('lv') == 0)
-			{
-				if(this.type == ret[i].type)
-				{
-					ret[i].isDead = true;
-					this.type = 'lv2';
-					this.hp = 15;
-				}
-				else
-					flag = true;
-			}
-
-			if(this.type == 'player' && ret[i].type == 'heart')
-			{ 
-				g_playerHP++;	
-				if(g_playerHP >= 10)
-					g_playerHP = 10;
-				ret[i].isDead = true;
-			} 
-
-			if((this.type == 'player' && ret[i].type.indexOf('lv') == 0) || 
-				(this.type.indexOf('lv') == 0 && ret[i].type == 'player'))
-			{
-				var player = this;
-				var enemy = ret[i];
-				if(this.type != 'player')
-				{
-					player = ret[i];
-					enemy = this;
-				}
-
-				enemy.hp -= 5;
-
-				if(enemy.hp < 0)
-					enemy.isDead = true;
-				else
-					flag = true;
-
-				g_playerHP -= 3; 
-			}
-		}
-
-		if(flag == false)
-		{
-			this.x = x;
-			this.y = y;
 		} 
-		else
-		{
-			this.ax = 0;
-			this.ay = 0;
-		}
-		
 	}
 
 	this.Render = function()
 	{ 
+		if(this.isDead)
+			return;
+
+		if(!this.visible)
+			return;
+
 		Renderer.SetAlpha(1);
-
-//			if(this.flip == false) 
-//				Renderer.Img(x, y, img);
-//			else
-//				Renderer.ImgFlipH(x, y, img);
-
 	
-		Renderer.SetColor(this.color);
-		var x = this.x - g_cameraX;
-		var y = this.y - g_cameraY;
+		var x = this.renderX;
+		var y = this.renderY;
+		var img = g_imgs[this.type];
 
-		Renderer.Circle(x, y , this.r * (10 + this.scaleSize) / 10);
 
-		var textWidth = Renderer.GetTextWidth(this.screenPos);
-		Renderer.SetColor('#ffffff');
-		Renderer.Text(x, y , this.r);
-		Renderer.Img(x, y, g_imgs[this.type]);
-//		Renderer.Text(x + TILE_WIDTH / 2 - textWidth / 2, 
-//						y + TILE_HEIGHT / 2 - Renderer.GetFontSize() / 2 , this.hp);
+		if(img)
+			Renderer.ImgBlt(x - (this.width * this.scale - this.width ) / 2, 
+						y - (this.height * this.scale - this.height) / 2, 
+					img.img, 
+					0, 0, img.width, img.height,	
+					this.width * this.scale, this.height * this.scale);
+		else
+		{
+			Renderer.SetColor('#000');
+			Renderer.Rect(x, y, this.width, this.height); 
+		}
+
+		Renderer.SetColor('#0f0');
+		Renderer.Text(x + this.width / 2, y + this.height - 20, this.hp); 
+
 	}
 
-	this.Combine = function(obj)
-	{
-		obj.isDead = true;
-		this.grade++;
-		if(this.grade >= g_sizeTable.length)
-			this.grade = g_sizeTable.length - 1;
-		this.r = g_sizeTable[this.grade].r;
-		this.color = g_sizeTable[this.grade].c; 
-	}
 };
 
 var ObjManager = function()
 { 
-	this.total_point = 0;
+	this.ax = 0;
+	this.ay = 0;
+	this.m_list = [];
+
 	this.Clear = function()
 	{
 		this.m_list = [];
 	}
 
-	this.Add = function(x, y, type)
+	this.Generate = function(x, y, type)
 	{
 		var obj = new Obj();
 		
 		obj.x = x;
 		obj.y = y;
-		obj.type = type;
+		obj.type = type; 
 
-		this.m_list.push(obj); 
+		if(type == 'player' || type =='gold' || type=='box')
+			obj.level = 1; 
+
+		switch(type)
+		{
+			case 'mon':
+				obj.turnLife = 8;
+//				obj.level = Math.min(Math.round(g_turn / 20), 5) + 1;
+				obj.level = g_genMonLevel;
+				obj.CalcMonStat();
+				break;
+
+			case 'merchant':
+				obj.hp = 4;
+				break;
+
+			case 'npc':
+				obj.hp = 2;
+				break;
+
+			default:
+				obj.turnLife = -1; 
+				break; 
+		}
+
+		obj.visibleDelay = 0;
+
 		return obj;
 	}
 
-	this.Update = function(minPos)
+	this.Add = function(x, y, type)
 	{
+		var obj = this.Generate(x, y, type);
+		this.m_list.push(obj); 
+
+		return obj;
+	}
+
+	this.Update = function()
+	{
+		var prevCnt = this.moveCnt;
+		this.moveCnt = 0;
+
 		var deadList = [];
 		for(var i in this.m_list)
 		{
@@ -276,7 +375,17 @@ var ObjManager = function()
 				console.log('dead alive');
 		} 
 
-		return minPos; 
+		if(prevCnt > 0 && this.moveCnt == 0)
+		{ 
+			this.ax = 0;
+			this.ay = 0;
+
+			for(var i in this.m_list)
+			{
+				var item = this.m_list[i];
+				item.forceStop = false;
+			} 
+		} 
 	}
 
 	this.Render = function()
@@ -288,19 +397,13 @@ var ObjManager = function()
 		} 
 	}
 
-	this.GetChrFromScreenPos = function(_x, _y)
-	{
-		var x = parseInt(_x) + g_cameraX;
-		var y = parseInt(_y) + g_cameraY;
-
-		return this.GetChrByPos(x, y);
-	}
-
 	this.CheckCollision = function(x, y, obj)
 	{ 
-		if(obj.isDead)
-			return;
 		var list = [];
+
+		if(obj && obj.isDead)
+			return list;
+
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
@@ -309,11 +412,14 @@ var ObjManager = function()
 
 			if(item.isDead)
 				continue;
+
+			if(item.state == 'unknown')
+				continue;
 			
-			if(!(x >= item.x + TILE_WIDTH || 
-				x + TILE_WIDTH <= item.x || 
-				y >= item.y + TILE_HEIGHT ||
-				y + TILE_HEIGHT <= item.y))
+			if(!(x >= item.x + item.col_x + item.col_width || 
+				x + obj.col_x + obj.col_width <= item.x || 
+				y >= item.y + item.col_y + item.col_height ||
+				y + obj.col_y + obj.col_height <= item.y))
 				list.push(item); 
 		}
 		return list; 
@@ -321,78 +427,50 @@ var ObjManager = function()
 
 	this.GetChrByPos = function(x,y)
 	{ 
+		var list = [];
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
 			if((item.x == x) && (item.y == y))
-				return item;
+				list.push(item);
 		}
 
-		return null;
+		return list;
 	}
 
-	this.PickChar = function(chr)
+	this.GetObjByType = function(type)
 	{
-		if(chr.picked == true)
-			return;
-
-		for(var i in this.m_list)
-		{
-			if(this.m_list[i] == chr)
-				this.m_list[i].Picked();
-			else
-				this.m_list[i].Unpicked();
-				//chr.picked = false;
-		}
-
-		removeFromList(this.m_list, chr);
-		this.m_list.push(chr);
-
-		console.log('chr picked');
-		console.log(chr);
-		return chr;
-	} 
-
-	this.ClearPickedObj = function()
-	{ 
-		for(var i in this.m_list)
-			this.m_list[i].Unpicked();
-	} 
-
-	this.Move = function(ax, ay)
-	{
-		var step  = 5;
+		var list = []
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
-			item.ax = ax * step;
-			item.ay = ay * step; 
-		}
-	}
-
-	this.CheckMoving = function()
-	{
-		for(var i in this.m_list)
-		{
-			var item = this.m_list[i];
-			if(item.ax != 0 || item.ay != 0)
-			{
-				console.log(item);
-				return true;
-			}
+			if(item.type == type)
+				list.push(item);
 		} 
-		return false;
+		return list;
 	}
 
-	this.GetEnemyCnt = function()
+	this.ClearObjectType = function(type)
 	{
-		var cnt = 0;
+		var deadList = [];
 		for(var i in this.m_list)
 		{
 			var item = this.m_list[i];
-			if(item.type.indexOf('lv') == 0)
-				cnt++;
+			if(item.type != type)
+				continue;
+				
+			item.isDead = true;
+			deadList.push(item);
 		} 
-		return cnt;
+
+		for(var i in deadList)
+			removeFromList(this.m_list, deadList[i]);
+
+		for(var i in this.m_list)
+		{
+			var item = this.m_list[i];
+			if(item.isDead)
+				console.log('dead alive');
+		} 
 	}
 }; 
